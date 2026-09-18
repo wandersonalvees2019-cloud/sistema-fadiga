@@ -26,3 +26,10 @@ Funções desta versão:
 - Marcar pendência como tratada e reabrir
 - Passagem de Turno com relatórios recentes + pendências abertas
 - Layout responsivo
+
+
+ATUALIZAÇÃO CIÊNCIA DA GESTÃO:
+- Meus Relatórios mostra Aguardando ciência ou Ciente pela Gestão.
+- Exibe gestor, data e hora da ciência.
+- Pendências também mostram a ciência da Gestão.
+- Nova tela Ciências da Gestão, atualizada em tempo real pela coleção ciencia_gestao.

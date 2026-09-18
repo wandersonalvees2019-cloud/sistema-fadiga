@@ -5,7 +5,7 @@ import {getFirestore,doc,getDoc,collection,addDoc,serverTimestamp,onSnapshot,que
 const cfg={apiKey:'AIzaSyAufmht7zvxG_8fwUeb59NBENppnt-MlhY',authDomain:'setor-de-fadiga.firebaseapp.com',projectId:'setor-de-fadiga',storageBucket:'setor-de-fadiga.firebasestorage.app',messagingSenderId:'843558361497',appId:'1:843558361497:web:54db0e57a70bcb0eb9db08'};
 const fb=initializeApp(cfg),auth=getAuth(fb),db=getFirestore(fb);
 const $=id=>document.getElementById(id);
-let user=null,perfil=null,relatorios=[],pendencias=[],editandoId=null;
+let user=null,perfil=null,relatorios=[],pendencias=[],ciencias=[],editandoId=null;
 
 const hoje=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
 $('data').value=hoje();
@@ -29,6 +29,7 @@ document.querySelectorAll('.nav').forEach(btn=>btn.addEventListener('click',()=>
   if(btn.dataset.page==='historico')renderRelatorios();
   if(btn.dataset.page==='pendencias')renderPendencias();
   if(btn.dataset.page==='passagem')renderPassagem();
+  if(btn.dataset.page==='ciencias')renderCiencias();
 }));
 
 $('loginForm').onsubmit=async e=>{
@@ -57,6 +58,10 @@ function iniciarTempoReal(){
  onSnapshot(query(collection(db,'pendencias'),orderBy('openedAt','desc')),snap=>{
    pendencias=snap.docs.map(d=>({id:d.id,...d.data()}));renderPendencias();renderPassagem();
  },err=>{console.error('pendencias',err);$('listaPendencias').innerHTML='<div class="empty">Erro ao carregar pendências: '+esc(err.message)+'</div>'});
+ onSnapshot(collection(db,'ciencia_gestao'),snap=>{
+   ciencias=snap.docs.map(d=>({id:d.id,...d.data()}));
+   renderRelatorios(); renderPendencias(); renderPassagem(); renderCiencias();
+ },err=>{console.error('ciencia_gestao',err);});
 }
 
 $('limpar').onclick=()=>{ cancelarEdicao(); $('relatorio').reset();$('data').value=hoje();$('turno').value='';$('save').textContent='';selectedStatus() };
@@ -95,6 +100,28 @@ $('relatorio').onsubmit=async e=>{
 $('limparFiltros').onclick=()=>{['fData','fTurno','fResp','fSit','fBusca'].forEach(id=>$(id).value='');renderRelatorios()};
 ['pStatus','pTurno','pBusca'].forEach(id=>$(id).addEventListener(id==='pBusca'?'input':'change',renderPendencias));
 
+
+function tsBR(ts){
+ if(!ts)return '-';
+ const d=ts.toDate?ts.toDate():new Date(ts);
+ if(isNaN(d))return '-';
+ return d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+function cienciaRelatorio(id){return ciencias.find(c=>c.relatorioId===id)}
+function cienciaPendencia(id){return ciencias.find(c=>c.pendenciaId===id)}
+function blocoCienciaRel(id){
+ const c=cienciaRelatorio(id);
+ return c
+ ? `<div class="ack ack-ok">✓ Ciente pela Gestão <span>${esc(c.gestorNome||'Gestão')} • ${tsBR(c.createdAt)}</span></div>`
+ : `<div class="ack ack-wait">◷ Aguardando ciência da Gestão</div>`;
+}
+function blocoCienciaPend(id){
+ const c=cienciaPendencia(id);
+ return c
+ ? `<div class="ack ack-ok">✓ Ciente pela Gestão <span>${esc(c.gestorNome||'Gestão')} • ${tsBR(c.createdAt)}</span></div>`
+ : `<div class="ack ack-wait">◷ Aguardando ciência da Gestão</div>`;
+}
+
 function textoRel(r){return [r.resumo,r.ocorrencias,r.pendenciasRecebidas,r.pendenciasGeradas,r.acoes,r.passagemTurno].join(' ').toLowerCase()}
 function renderRelatorios(){
  if(!$('listaRelatorios'))return;
@@ -109,12 +136,12 @@ function renderRelatorios(){
  document.querySelectorAll('[data-del-rel]').forEach(b=>b.onclick=()=>excluirRelatorio(b.dataset.delRel));
 }
 function cardRelatorio(r){
- return `<article class="record ${esc(r.situacao)}"><div class="record-top"><div><h3>${esc(r.responsavelNome)} • Turno ${esc(r.turno)}</h3><div class="meta">${dataBR(r.dataTurno)} • ${esc(r.horario||'')}</div></div><span class="badge ${esc(r.situacao)}">${esc(r.situacao)}</span></div><p>${esc(r.resumo||'Sem resumo')}</p><div class="record-actions"><button class="small-btn" data-edit-rel="${r.id}">Editar</button><button class="small-btn danger" data-del-rel="${r.id}">Excluir</button><button class="small-btn orange" data-view-rel="${r.id}">Visualizar completo</button></div></article>`
+ return `<article class="record ${esc(r.situacao)}"><div class="record-top"><div><h3>${esc(r.responsavelNome)} • Turno ${esc(r.turno)}</h3><div class="meta">${dataBR(r.dataTurno)} • ${esc(r.horario||'')}</div></div><span class="badge ${esc(r.situacao)}">${esc(r.situacao)}</span></div><p>${esc(r.resumo||'Sem resumo')}</p>${blocoCienciaRel(r.id)}<div class="record-actions"><button class="small-btn" data-edit-rel="${r.id}">Editar</button><button class="small-btn danger" data-del-rel="${r.id}">Excluir</button><button class="small-btn orange" data-view-rel="${r.id}">Visualizar completo</button></div></article>`
 }
 function abrirRelatorio(id){
  const r=relatorios.find(x=>x.id===id);if(!r)return;
  const campos=[['Resumo',r.resumo],['Ocorrências',r.ocorrencias],['Pendências recebidas',r.pendenciasRecebidas],['Pendências geradas',r.pendenciasGeradas],['Ações realizadas',r.acoes],['Passagem de turno / Observações',r.passagemTurno]];
- $('modalBody').innerHTML=`<h2>Relatório • ${esc(r.responsavelNome)} • Turno ${esc(r.turno)}</h2><p class="meta">${dataBR(r.dataTurno)} • ${esc(r.horario||'')} • ${esc(r.situacao)}</p><div class="detail-grid"><div class="detail"><b>Sistema de Fadiga</b>${esc(r.sistemaFadiga||'-')}</div><div class="detail"><b>Condições Operacionais</b>${esc(r.condicoesOperacionais||'-')}</div>${campos.map(c=>`<div class="detail"><b>${c[0]}</b>${esc(c[1]||'-')}</div>`).join('')}</div>`;
+ $('modalBody').innerHTML=`<h2>Relatório • ${esc(r.responsavelNome)} • Turno ${esc(r.turno)}</h2><p class="meta">${dataBR(r.dataTurno)} • ${esc(r.horario||'')} • ${esc(r.situacao)}</p>${blocoCienciaRel(r.id)}<div class="detail-grid"><div class="detail"><b>Sistema de Fadiga</b>${esc(r.sistemaFadiga||'-')}</div><div class="detail"><b>Condições Operacionais</b>${esc(r.condicoesOperacionais||'-')}</div>${campos.map(c=>`<div class="detail"><b>${c[0]}</b>${esc(c[1]||'-')}</div>`).join('')}</div>`;
  $('modal').classList.remove('hide');
 }
 
@@ -151,7 +178,7 @@ function renderPendencias(){
 }
 function cardPendencia(p){
  const aberta=p.status!=='TRATADA';
- return `<article class="record ${aberta?'ATENCAO':'NORMAL'}"><div class="record-top"><div><h3>${aberta?'Pendência aberta':'Pendência tratada'}</h3><div class="meta">Origem: ${esc(p.openedByNome||'-')} • Turno ${esc(p.turnoOrigem||'-')}</div></div><span class="badge ${aberta?'ATENCAO':'NORMAL'}">${esc(p.status||'ABERTA')}</span></div><p>${esc(p.descricao||'')}</p><div class="record-actions"><button class="small-btn danger" data-del-p="${p.id}">Excluir</button><button class="small-btn ${aberta?'green':'orange'}" data-toggle-p="${p.id}">${aberta?'Marcar como tratada':'Reabrir'}</button></div></article>`
+ return `<article class="record ${aberta?'ATENCAO':'NORMAL'}"><div class="record-top"><div><h3>${aberta?'Pendência aberta':'Pendência tratada'}</h3><div class="meta">Origem: ${esc(p.openedByNome||'-')} • Turno ${esc(p.turnoOrigem||'-')}</div></div><span class="badge ${aberta?'ATENCAO':'NORMAL'}">${esc(p.status||'ABERTA')}</span></div><p>${esc(p.descricao||'')}</p>${blocoCienciaPend(p.id)}<div class="record-actions"><button class="small-btn danger" data-del-p="${p.id}">Excluir</button><button class="small-btn ${aberta?'green':'orange'}" data-toggle-p="${p.id}">${aberta?'Marcar como tratada':'Reabrir'}</button></div></article>`
 }
 async function togglePendencia(id){
  const p=pendencias.find(x=>x.id===id);if(!p)return;
@@ -175,5 +202,29 @@ function renderPassagem(){
  document.querySelectorAll('#page-passagem [data-toggle-p]').forEach(b=>b.onclick=()=>togglePendencia(b.dataset.toggleP));
  document.querySelectorAll('#page-passagem [data-del-p]').forEach(b=>b.onclick=()=>excluirPendencia(b.dataset.delP));
 }
+
+function renderCiencias(){
+ if(!$('listaCiencias'))return;
+ const ordenadas=[...ciencias].sort((a,b)=>{
+   const ta=a.createdAt?.toMillis?a.createdAt.toMillis():0;
+   const tb=b.createdAt?.toMillis?b.createdAt.toMillis():0;
+   return tb-ta;
+ });
+ $('totalCiencias').textContent=ordenadas.length+' ciência'+(ordenadas.length===1?'':'s');
+ if($('badgeCiencias'))$('badgeCiencias').textContent=ordenadas.length;
+ $('listaCiencias').innerHTML=ordenadas.length?ordenadas.map(c=>{
+   if(c.relatorioId){
+     const r=relatorios.find(x=>x.id===c.relatorioId);
+     return `<article class="record NORMAL"><div class="record-top"><div><h3>✓ Ciência em relatório</h3><div class="meta">${r?`${esc(r.responsavelNome)} • Turno ${esc(r.turno)} • ${dataBR(r.dataTurno)}`:'Relatório'}</div></div><span class="badge NORMAL">CIENTE</span></div><p>Gestão: <b>${esc(c.gestorNome||'Gestão')}</b> • ${tsBR(c.createdAt)}</p>${r?`<div class="record-actions"><button class="small-btn orange" data-view-ciencia-rel="${r.id}">Visualizar relatório</button></div>`:''}</article>`;
+   }
+   if(c.pendenciaId){
+     const p=pendencias.find(x=>x.id===c.pendenciaId);
+     return `<article class="record NORMAL"><div class="record-top"><div><h3>✓ Ciência em pendência</h3><div class="meta">${p?`Origem: ${esc(p.openedByNome||'-')} • Turno ${esc(p.turnoOrigem||'-')}`:'Pendência'}</div></div><span class="badge NORMAL">CIENTE</span></div><p>${p?esc(p.descricao||''):'Registro de pendência'}<br><span class="meta">Gestão: ${esc(c.gestorNome||'Gestão')} • ${tsBR(c.createdAt)}</span></p></article>`;
+   }
+   return '';
+ }).join(''):'<div class="empty">A Gestão ainda não registrou ciência em relatórios ou pendências.</div>';
+ document.querySelectorAll('[data-view-ciencia-rel]').forEach(b=>b.onclick=()=>abrirRelatorio(b.dataset.viewCienciaRel));
+}
+
 $('modalClose').onclick=()=>$('modal').classList.add('hide');
 $('modal').onclick=e=>{if(e.target===$('modal'))$('modal').classList.add('hide')};

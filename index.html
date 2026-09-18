@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Setor de Fadiga • Relatório Diário</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=20260918-ciencia1">
 </head>
 <body>
 <div id="login" class="login-wrap">
@@ -30,6 +30,7 @@
     <button class="nav" data-page="historico">▤ Meus Relatórios</button>
     <button class="nav" data-page="pendencias">◷ Pendências</button>
     <button class="nav" data-page="passagem">⇄ Passagem de Turno</button>
+    <button class="nav" data-page="ciencias">✓ Ciências da Gestão <span id="badgeCiencias" class="nav-badge">0</span></button>
   </div>
   <div>
     <div class="frase">MAIS QUE MONITORAR,<br>É PROTEGER VIDAS.</div>
@@ -126,6 +127,18 @@
 </main>
 </div>
 
+
+<section id="page-ciencias" class="page">
+  <div class="page-head">
+    <div><small>RETORNO DA GESTÃO</small><h1>Ciências da Gestão</h1></div>
+    <span id="totalCiencias" class="counter">0 ciências</span>
+  </div>
+  <div class="panel notice">
+    Aqui ficam as confirmações de ciência registradas pela Gestão nos relatórios e pendências do setor.
+  </div>
+  <div id="listaCiencias" class="cards"></div>
+</section>
+
 <div id="modal" class="modal hide"><div class="modal-box"><button id="modalClose" class="x">×</button><div id="modalBody"></div></div></div>
-<script type="module" src="app.js"></script>
+<script type="module" src="app.js?v=20260918-ciencia1"></script>
 </body></html>

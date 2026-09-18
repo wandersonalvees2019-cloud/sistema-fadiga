@@ -1,11 +1,11 @@
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js';
 import {getAuth,signInWithEmailAndPassword,onAuthStateChanged,signOut} from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js';
-import {getFirestore,doc,getDoc,collection,addDoc,serverTimestamp,onSnapshot,query,orderBy,updateDoc} from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js';
+import {getFirestore,doc,getDoc,collection,addDoc,serverTimestamp,onSnapshot,query,orderBy,updateDoc,deleteDoc,writeBatch} from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js';
 
 const cfg={apiKey:'AIzaSyAufmht7zvxG_8fwUeb59NBENppnt-MlhY',authDomain:'setor-de-fadiga.firebaseapp.com',projectId:'setor-de-fadiga',storageBucket:'setor-de-fadiga.firebasestorage.app',messagingSenderId:'843558361497',appId:'1:843558361497:web:54db0e57a70bcb0eb9db08'};
 const fb=initializeApp(cfg),auth=getAuth(fb),db=getFirestore(fb);
 const $=id=>document.getElementById(id);
-let user=null,perfil=null,relatorios=[],pendencias=[];
+let user=null,perfil=null,relatorios=[],pendencias=[],editandoId=null;
 
 const hoje=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
 $('data').value=hoje();
@@ -59,7 +59,8 @@ function iniciarTempoReal(){
  },err=>{console.error('pendencias',err);$('listaPendencias').innerHTML='<div class="empty">Erro ao carregar pendências: '+esc(err.message)+'</div>'});
 }
 
-$('limpar').onclick=()=>{ $('relatorio').reset();$('data').value=hoje();$('turno').value='';$('save').textContent='';selectedStatus() };
+$('limpar').onclick=()=>{ cancelarEdicao(); $('relatorio').reset();$('data').value=hoje();$('turno').value='';$('save').textContent='';selectedStatus() };
+function cancelarEdicao(){editandoId=null;$('btnSalvar').textContent='▣ Salvar Relatório';}
 
 $('relatorio').onsubmit=async e=>{
  e.preventDefault();
@@ -72,9 +73,19 @@ $('relatorio').onsubmit=async e=>{
    sistemaFadiga:$('sistema').value,condicoesOperacionais:$('condicoes').value,resumo:$('resumo').value.trim(),
    ocorrencias:$('ocorrencias').value.trim(),pendenciasRecebidas:$('recebidas').value.trim(),pendenciasGeradas:$('geradas').value.trim(),
    acoes:$('acoes').value.trim(),passagemTurno:$('passagem').value.trim(),status:'FINALIZADO',createdAt:serverTimestamp(),updatedAt:serverTimestamp()};
-  const ref=await addDoc(collection(db,'relatorios'),dados);
-  if(dados.pendenciasGeradas)await addDoc(collection(db,'pendencias'),{descricao:dados.pendenciasGeradas,reportOriginId:ref.id,status:'ABERTA',turnoOrigem:turno,openedByUid:user.uid,openedByNome:nome,openedAt:serverTimestamp(),updatedAt:serverTimestamp()});
-  $('save').textContent='Relatório salvo com sucesso. Ele já está disponível em Meus Relatórios.';
+  let ref;
+  if(editandoId){
+    const anterior=relatorios.find(r=>r.id===editandoId);
+    const atualizados={...dados,createdAt:anterior?.createdAt||serverTimestamp(),updatedAt:serverTimestamp()};
+    await updateDoc(doc(db,'relatorios',editandoId),atualizados);
+    ref={id:editandoId};
+    $('save').textContent='Relatório atualizado com sucesso.';
+    cancelarEdicao();
+  }else{
+    ref=await addDoc(collection(db,'relatorios'),dados);
+    if(dados.pendenciasGeradas)await addDoc(collection(db,'pendencias'),{descricao:dados.pendenciasGeradas,reportOriginId:ref.id,status:'ABERTA',turnoOrigem:turno,openedByUid:user.uid,openedByNome:nome,openedAt:serverTimestamp(),updatedAt:serverTimestamp()});
+    $('save').textContent='Relatório salvo com sucesso. Ele já está disponível em Meus Relatórios.';
+  }
   $('resumo').value='';$('ocorrencias').value='';$('recebidas').value='';$('geradas').value='';$('acoes').value='';$('passagem').value='';
  }catch(err){console.error(err);$('save').textContent='Erro ao salvar: '+err.message}
  finally{btn.disabled=false;btn.textContent='▣ Salvar Relatório'}
@@ -94,9 +105,11 @@ function renderRelatorios(){
  $('totalRelatorios').textContent=a.length+' registro'+(a.length===1?'':'s');
  $('listaRelatorios').innerHTML=a.length?a.map(cardRelatorio).join(''):'<div class="empty">Nenhum relatório encontrado com esses filtros.</div>';
  document.querySelectorAll('[data-view-rel]').forEach(b=>b.onclick=()=>abrirRelatorio(b.dataset.viewRel));
+ document.querySelectorAll('[data-edit-rel]').forEach(b=>b.onclick=()=>editarRelatorio(b.dataset.editRel));
+ document.querySelectorAll('[data-del-rel]').forEach(b=>b.onclick=()=>excluirRelatorio(b.dataset.delRel));
 }
 function cardRelatorio(r){
- return `<article class="record ${esc(r.situacao)}"><div class="record-top"><div><h3>${esc(r.responsavelNome)} • Turno ${esc(r.turno)}</h3><div class="meta">${dataBR(r.dataTurno)} • ${esc(r.horario||'')}</div></div><span class="badge ${esc(r.situacao)}">${esc(r.situacao)}</span></div><p>${esc(r.resumo||'Sem resumo')}</p><div class="record-actions"><button class="small-btn orange" data-view-rel="${r.id}">Visualizar completo</button></div></article>`
+ return `<article class="record ${esc(r.situacao)}"><div class="record-top"><div><h3>${esc(r.responsavelNome)} • Turno ${esc(r.turno)}</h3><div class="meta">${dataBR(r.dataTurno)} • ${esc(r.horario||'')}</div></div><span class="badge ${esc(r.situacao)}">${esc(r.situacao)}</span></div><p>${esc(r.resumo||'Sem resumo')}</p><div class="record-actions"><button class="small-btn" data-edit-rel="${r.id}">Editar</button><button class="small-btn danger" data-del-rel="${r.id}">Excluir</button><button class="small-btn orange" data-view-rel="${r.id}">Visualizar completo</button></div></article>`
 }
 function abrirRelatorio(id){
  const r=relatorios.find(x=>x.id===id);if(!r)return;
@@ -105,28 +118,62 @@ function abrirRelatorio(id){
  $('modal').classList.remove('hide');
 }
 
+
+function editarRelatorio(id){
+ const r=relatorios.find(x=>x.id===id);if(!r)return;
+ editandoId=id;
+ $('data').value=r.dataTurno||hoje();$('responsavel').value=r.responsavelNome||'';$('turno').value=r.turno||'';$('horario').value=r.horario||'06:00 - 18:00';
+ const radio=document.querySelector(`input[name=sit][value="${r.situacao||'NORMAL'}"]`);if(radio)radio.checked=true;selectedStatus();
+ $('sistema').value=r.sistemaFadiga||'NORMAL';$('condicoes').value=r.condicoesOperacionais||'NORMAIS';$('resumo').value=r.resumo||'';$('ocorrencias').value=r.ocorrencias||'';$('recebidas').value=r.pendenciasRecebidas||'';$('geradas').value=r.pendenciasGeradas||'';$('acoes').value=r.acoes||'';$('passagem').value=r.passagemTurno||'';
+ document.querySelectorAll('.nav').forEach(b=>b.classList.toggle('on',b.dataset.page==='novo'));document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));$('page-novo').classList.add('active');
+ $('btnSalvar').textContent='✓ Salvar Alterações';$('save').textContent='Editando relatório existente. Salve para confirmar as alterações.';window.scrollTo({top:0,behavior:'smooth'});
+}
+async function excluirRelatorio(id){
+ const r=relatorios.find(x=>x.id===id);if(!r)return;
+ const vinculadas=pendencias.filter(p=>p.reportOriginId===id);
+ const aviso=vinculadas.length?`Este relatório possui ${vinculadas.length} pendência(s) vinculada(s). Ao excluir, elas também serão apagadas.
+
+Deseja continuar?`:'Deseja realmente excluir este relatório? Esta ação não poderá ser desfeita.';
+ if(!confirm(aviso))return;
+ try{
+   const batch=writeBatch(db);batch.delete(doc(db,'relatorios',id));vinculadas.forEach(p=>batch.delete(doc(db,'pendencias',p.id)));await batch.commit();
+   if(editandoId===id){cancelarEdicao();$('relatorio').reset();$('data').value=hoje();}
+ }catch(err){alert('Não foi possível excluir o relatório: '+err.message)}
+}
+
 function renderPendencias(){
  let a=[...pendencias],st=$('pStatus').value,t=$('pTurno').value,b=$('pBusca').value.trim().toLowerCase();
  if(st)a=a.filter(p=>p.status===st);if(t)a=a.filter(p=>p.turnoOrigem===t);if(b)a=a.filter(p=>(p.descricao||'').toLowerCase().includes(b)||(p.openedByNome||'').toLowerCase().includes(b));
  $('totalPendencias').textContent=pendencias.filter(p=>p.status==='ABERTA').length+' aberta'+(pendencias.filter(p=>p.status==='ABERTA').length===1?'':'s');
  $('listaPendencias').innerHTML=a.length?a.map(cardPendencia).join(''):'<div class="empty">Nenhuma pendência encontrada.</div>';
  document.querySelectorAll('[data-toggle-p]').forEach(b=>b.onclick=()=>togglePendencia(b.dataset.toggleP));
+ document.querySelectorAll('[data-del-p]').forEach(b=>b.onclick=()=>excluirPendencia(b.dataset.delP));
 }
 function cardPendencia(p){
  const aberta=p.status!=='TRATADA';
- return `<article class="record ${aberta?'ATENCAO':'NORMAL'}"><div class="record-top"><div><h3>${aberta?'Pendência aberta':'Pendência tratada'}</h3><div class="meta">Origem: ${esc(p.openedByNome||'-')} • Turno ${esc(p.turnoOrigem||'-')}</div></div><span class="badge ${aberta?'ATENCAO':'NORMAL'}">${esc(p.status||'ABERTA')}</span></div><p>${esc(p.descricao||'')}</p><div class="record-actions"><button class="small-btn ${aberta?'green':'orange'}" data-toggle-p="${p.id}">${aberta?'Marcar como tratada':'Reabrir'}</button></div></article>`
+ return `<article class="record ${aberta?'ATENCAO':'NORMAL'}"><div class="record-top"><div><h3>${aberta?'Pendência aberta':'Pendência tratada'}</h3><div class="meta">Origem: ${esc(p.openedByNome||'-')} • Turno ${esc(p.turnoOrigem||'-')}</div></div><span class="badge ${aberta?'ATENCAO':'NORMAL'}">${esc(p.status||'ABERTA')}</span></div><p>${esc(p.descricao||'')}</p><div class="record-actions"><button class="small-btn danger" data-del-p="${p.id}">Excluir</button><button class="small-btn ${aberta?'green':'orange'}" data-toggle-p="${p.id}">${aberta?'Marcar como tratada':'Reabrir'}</button></div></article>`
 }
 async function togglePendencia(id){
  const p=pendencias.find(x=>x.id===id);if(!p)return;
  try{await updateDoc(doc(db,'pendencias',id),{status:p.status==='TRATADA'?'ABERTA':'TRATADA',updatedAt:serverTimestamp(),treatedByUid:user.uid})}
  catch(err){alert('Não foi possível atualizar: '+err.message)}
 }
+
+async function excluirPendencia(id){
+ const p=pendencias.find(x=>x.id===id);if(!p)return;
+ if(!confirm('Deseja realmente excluir esta pendência? Esta ação não poderá ser desfeita.'))return;
+ try{await deleteDoc(doc(db,'pendencias',id))}catch(err){alert('Não foi possível excluir a pendência: '+err.message)}
+}
+
 function renderPassagem(){
  const rs=relatorios.slice(0,5),ps=pendencias.filter(p=>p.status==='ABERTA').slice(0,8);
  $('passRelatorios').innerHTML=rs.length?rs.map(cardRelatorio).join(''):'<div class="empty">Sem relatórios recentes.</div>';
  $('passPendencias').innerHTML=ps.length?ps.map(cardPendencia).join(''):'<div class="empty">Nenhuma pendência aberta.</div>';
  document.querySelectorAll('#page-passagem [data-view-rel]').forEach(b=>b.onclick=()=>abrirRelatorio(b.dataset.viewRel));
+ document.querySelectorAll('#page-passagem [data-edit-rel]').forEach(b=>b.onclick=()=>editarRelatorio(b.dataset.editRel));
+ document.querySelectorAll('#page-passagem [data-del-rel]').forEach(b=>b.onclick=()=>excluirRelatorio(b.dataset.delRel));
  document.querySelectorAll('#page-passagem [data-toggle-p]').forEach(b=>b.onclick=()=>togglePendencia(b.dataset.toggleP));
+ document.querySelectorAll('#page-passagem [data-del-p]').forEach(b=>b.onclick=()=>excluirPendencia(b.dataset.delP));
 }
 $('modalClose').onclick=()=>$('modal').classList.add('hide');
 $('modal').onclick=e=>{if(e.target===$('modal'))$('modal').classList.add('hide')};

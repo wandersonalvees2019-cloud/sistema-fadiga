@@ -1,0 +1,7 @@
+APP OPERADORES — SETOR DE FADIGA — V1
+Projeto Firebase: setor-de-fadiga
+Arquivos: index.html, style.css, app.js
+Já conectado ao Firebase Authentication e Cloud Firestore.
+Perfil inicial esperado: Wanderson / administrador / turno D.
+Próxima etapa: hospedar via navegador/serviço web sem instalar Node ou NPM no computador protegido.
+Nunca compartilhe sua senha de login, Service Account ou chave privada.

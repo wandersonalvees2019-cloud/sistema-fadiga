@@ -1,35 +1,3 @@
-SISTEMA DE FADIGA — VERSÃO FINAL OPERADORES
-
-Arquivos para substituir no GitHub:
-- index.html
-- style.css
-- app.js
-
-LOGIN ÚNICO:
-Use o mesmo usuário/senha já criado no Firebase Authentication.
-Após entrar, o colaborador é selecionado no formulário:
-Daniele = A
-Carina = B
-Natiély = C
-Wanderson = D
-
-O sistema grava todos os relatórios usando o UID do login único, mas registra
-responsavelNome e turno conforme o colaborador selecionado.
-
-Funções desta versão:
-- Novo Relatório
-- Botões Normal / Atenção / Ocorrência com seleção visual real
-- Meus Relatórios em tempo real
-- Filtros por data, turno, colaborador, situação e pesquisa textual
-- Visualização completa do relatório
-- Pendências em tempo real
-- Marcar pendência como tratada e reabrir
-- Passagem de Turno com relatórios recentes + pendências abertas
-- Layout responsivo
-
-
-ATUALIZAÇÃO CIÊNCIA DA GESTÃO:
-- Meus Relatórios mostra Aguardando ciência ou Ciente pela Gestão.
-- Exibe gestor, data e hora da ciência.
-- Pendências também mostram a ciência da Gestão.
-- Nova tela Ciências da Gestão, atualizada em tempo real pela coleção ciencia_gestao.
+SISTEMA FADIGA — OPERADORES V3.2
+Inclui: backup Excel dos relatórios filtrados; PDF/Impressão; orientações de preenchimento; exclusão em cascata de ciências; exclusão manual de ciência para administrador; favicon S2M para desktop/mobile.
+Substitua TODOS os arquivos no repositório sistema-fadiga, faça Commit changes, aguarde o GitHub Pages e use Ctrl+F5.

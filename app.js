@@ -123,12 +123,16 @@ function blocoCienciaPend(id){
 }
 
 function textoRel(r){return [r.resumo,r.ocorrencias,r.pendenciasRecebidas,r.pendenciasGeradas,r.acoes,r.passagemTurno].join(' ').toLowerCase()}
-function renderRelatorios(){
- if(!$('listaRelatorios'))return;
+function relatoriosFiltrados(){
  let a=[...relatorios];
  const d=$('fData').value,t=$('fTurno').value,n=$('fResp').value,s=$('fSit').value,b=$('fBusca').value.trim().toLowerCase();
  if(d)a=a.filter(r=>r.dataTurno===d);if(t)a=a.filter(r=>r.turno===t);if(n)a=a.filter(r=>r.responsavelNome===n);if(s)a=a.filter(r=>r.situacao===s);
  if(b)a=a.filter(r=>(r.responsavelNome||'').toLowerCase().includes(b)||textoRel(r).includes(b));
+ return a;
+}
+function renderRelatorios(){
+ if(!$('listaRelatorios'))return;
+ let a=relatoriosFiltrados();
  $('totalRelatorios').textContent=a.length+' registro'+(a.length===1?'':'s');
  $('listaRelatorios').innerHTML=a.length?a.map(cardRelatorio).join(''):'<div class="empty">Nenhum relatório encontrado com esses filtros.</div>';
  document.querySelectorAll('[data-view-rel]').forEach(b=>b.onclick=()=>abrirRelatorio(b.dataset.viewRel));
@@ -163,7 +167,7 @@ async function excluirRelatorio(id){
 Deseja continuar?`:'Deseja realmente excluir este relatório? Esta ação não poderá ser desfeita.';
  if(!confirm(aviso))return;
  try{
-   const batch=writeBatch(db);batch.delete(doc(db,'relatorios',id));vinculadas.forEach(p=>batch.delete(doc(db,'pendencias',p.id)));await batch.commit();
+   const batch=writeBatch(db);batch.delete(doc(db,'relatorios',id));vinculadas.forEach(p=>batch.delete(doc(db,'pendencias',p.id)));ciencias.filter(c=>c.relatorioId===id||vinculadas.some(p=>p.id===c.pendenciaId)).forEach(c=>batch.delete(doc(db,'ciencia_gestao',c.id)));await batch.commit();
    if(editandoId===id){cancelarEdicao();$('relatorio').reset();$('data').value=hoje();}
  }catch(err){alert('Não foi possível excluir o relatório: '+err.message)}
 }
@@ -189,7 +193,7 @@ async function togglePendencia(id){
 async function excluirPendencia(id){
  const p=pendencias.find(x=>x.id===id);if(!p)return;
  if(!confirm('Deseja realmente excluir esta pendência? Esta ação não poderá ser desfeita.'))return;
- try{await deleteDoc(doc(db,'pendencias',id))}catch(err){alert('Não foi possível excluir a pendência: '+err.message)}
+ try{const batch=writeBatch(db);batch.delete(doc(db,'pendencias',id));ciencias.filter(c=>c.pendenciaId===id).forEach(c=>batch.delete(doc(db,'ciencia_gestao',c.id)));await batch.commit()}catch(err){alert('Não foi possível excluir a pendência: '+err.message)}
 }
 
 function renderPassagem(){
@@ -215,16 +219,23 @@ function renderCiencias(){
  $('listaCiencias').innerHTML=ordenadas.length?ordenadas.map(c=>{
    if(c.relatorioId){
      const r=relatorios.find(x=>x.id===c.relatorioId);
-     return `<article class="record NORMAL"><div class="record-top"><div><h3>✓ Ciência em relatório</h3><div class="meta">${r?`${esc(r.responsavelNome)} • Turno ${esc(r.turno)} • ${dataBR(r.dataTurno)}`:'Relatório'}</div></div><span class="badge NORMAL">CIENTE</span></div><p>Gestão: <b>${esc(c.gestorNome||'Gestão')}</b> • ${tsBR(c.createdAt)}</p>${r?`<div class="record-actions"><button class="small-btn orange" data-view-ciencia-rel="${r.id}">Visualizar relatório</button></div>`:''}</article>`;
+     return `<article class="record NORMAL"><div class="record-top"><div><h3>✓ Ciência em relatório</h3><div class="meta">${r?`${esc(r.responsavelNome)} • Turno ${esc(r.turno)} • ${dataBR(r.dataTurno)}`:'Relatório'}</div></div><span class="badge NORMAL">CIENTE</span></div><p>Gestão: <b>${esc(c.gestorNome||'Gestão')}</b> • ${tsBR(c.createdAt)}</p><div class="record-actions">${r?`<button class="small-btn orange" data-view-ciencia-rel="${r.id}">Visualizar relatório</button>`:''}${perfil?.perfil==='administrador'?`<button class="small-btn danger" data-del-ciencia="${c.id}">Excluir ciência</button>`:''}</div></article>`;
    }
    if(c.pendenciaId){
      const p=pendencias.find(x=>x.id===c.pendenciaId);
-     return `<article class="record NORMAL"><div class="record-top"><div><h3>✓ Ciência em pendência</h3><div class="meta">${p?`Origem: ${esc(p.openedByNome||'-')} • Turno ${esc(p.turnoOrigem||'-')}`:'Pendência'}</div></div><span class="badge NORMAL">CIENTE</span></div><p>${p?esc(p.descricao||''):'Registro de pendência'}<br><span class="meta">Gestão: ${esc(c.gestorNome||'Gestão')} • ${tsBR(c.createdAt)}</span></p></article>`;
+     return `<article class="record NORMAL"><div class="record-top"><div><h3>✓ Ciência em pendência</h3><div class="meta">${p?`Origem: ${esc(p.openedByNome||'-')} • Turno ${esc(p.turnoOrigem||'-')}`:'Pendência'}</div></div><span class="badge NORMAL">CIENTE</span></div><p>${p?esc(p.descricao||''):'Registro de pendência'}<br><span class="meta">Gestão: ${esc(c.gestorNome||'Gestão')} • ${tsBR(c.createdAt)}</span></p>${perfil?.perfil==='administrador'?`<div class="record-actions"><button class="small-btn danger" data-del-ciencia="${c.id}">Excluir ciência</button></div>`:''}</article>`;
    }
    return '';
  }).join(''):'<div class="empty">A Gestão ainda não registrou ciência em relatórios ou pendências.</div>';
  document.querySelectorAll('[data-view-ciencia-rel]').forEach(b=>b.onclick=()=>abrirRelatorio(b.dataset.viewCienciaRel));
+ document.querySelectorAll('[data-del-ciencia]').forEach(b=>b.onclick=()=>excluirCiencia(b.dataset.delCiencia));
 }
+async function excluirCiencia(id){if(perfil?.perfil!=='administrador')return;if(!confirm('Deseja excluir este registro de ciência?'))return;try{await deleteDoc(doc(db,'ciencia_gestao',id))}catch(err){alert('Não foi possível excluir a ciência: '+err.message)}}
+
+
+function linhaBackup(r){const c=cienciaRelatorio(r.id);return {'Data':dataBR(r.dataTurno),'Turno':r.turno||'','Horário':r.horario||'','Colaborador':r.responsavelNome||'','Situação':r.situacao||'','Sistema de Fadiga':r.sistemaFadiga||'','Condições Operacionais':r.condicoesOperacionais||'','Resumo':r.resumo||'','Ocorrências':r.ocorrencias||'','Pendências Recebidas':r.pendenciasRecebidas||'','Pendências Geradas':r.pendenciasGeradas||'','Ações Realizadas':r.acoes||'','Passagem de Turno / Observações':r.passagemTurno||'','Ciência da Gestão':c?'CIENTE':'AGUARDANDO','Gestor':c?.gestorNome||'','Data/Hora da Ciência':c?tsBR(c.createdAt):''}}
+$('exportExcel').onclick=()=>{const dados=relatoriosFiltrados();if(!dados.length){alert('Não há relatórios para exportar com os filtros atuais.');return}if(!window.XLSX){alert('O módulo de Excel não carregou. Verifique a internet e tente novamente.');return}const ws=XLSX.utils.json_to_sheet(dados.map(linhaBackup));ws['!cols']=[12,8,16,18,14,20,22,42,42,42,42,42,48,18,20,22].map(w=>({wch:w}));const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Relatórios');XLSX.writeFile(wb,`Backup_Relatorios_Fadiga_${hoje()}.xlsx`)};
+$('exportPdf').onclick=()=>{const dados=relatoriosFiltrados();if(!dados.length){alert('Não há relatórios para gerar PDF com os filtros atuais.');return}const cards=dados.map(r=>{const c=cienciaRelatorio(r.id);return `<section class="pdf-card"><h2>${esc(r.responsavelNome)} • Turno ${esc(r.turno)}</h2><div class="pdf-meta">${dataBR(r.dataTurno)} • ${esc(r.horario||'')} • ${esc(r.situacao||'')}</div><div class="pdf-grid"><div><b>Sistema de Fadiga</b><br>${esc(r.sistemaFadiga||'-')}</div><div><b>Condições Operacionais</b><br>${esc(r.condicoesOperacionais||'-')}</div><div><b>Resumo</b><br>${esc(r.resumo||'-')}</div><div><b>Ocorrências</b><br>${esc(r.ocorrencias||'-')}</div><div><b>Pendências recebidas</b><br>${esc(r.pendenciasRecebidas||'-')}</div><div><b>Pendências geradas</b><br>${esc(r.pendenciasGeradas||'-')}</div><div><b>Ações realizadas</b><br>${esc(r.acoes||'-')}</div><div><b>Passagem de turno / Observações</b><br>${esc(r.passagemTurno||'-')}</div><div class="full"><b>Ciência da Gestão</b><br>${c?`CIENTE — ${esc(c.gestorNome||'Gestão')} • ${tsBR(c.createdAt)}`:'Aguardando ciência'}</div></div></section>`}).join('');const w=window.open('','_blank');if(!w){alert('O navegador bloqueou a janela de impressão. Permita pop-ups para este site.');return}w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Relatórios Fadiga</title><style>body{font-family:Arial,sans-serif;color:#142632;margin:28px}header{border-bottom:4px solid #f36c0a;margin-bottom:20px;padding-bottom:10px}h1{margin:0;font-size:24px}header p{margin:5px 0;color:#667}.pdf-card{border:1px solid #ccd6dc;border-left:5px solid #f36c0a;border-radius:8px;padding:16px;margin:0 0 18px;break-inside:avoid}.pdf-card h2{font-size:18px;margin:0}.pdf-meta{font-size:12px;color:#667;margin:4px 0 14px}.pdf-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.pdf-grid>div{border-top:1px solid #e1e6e9;padding-top:8px;white-space:pre-wrap}.full{grid-column:1/-1}@media print{body{margin:12mm}.pdf-card{break-inside:avoid}}</style></head><body><header><h1>SEGURANÇA DO TRABALHO • SETOR DE FADIGA</h1><p>Relatórios de Turno • ${dados.length} registro(s)</p></header>${cards}</body></html>`);w.document.close();setTimeout(()=>w.print(),350)};
 
 $('modalClose').onclick=()=>$('modal').classList.add('hide');
 $('modal').onclick=e=>{if(e.target===$('modal'))$('modal').classList.add('hide')};

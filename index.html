@@ -4,7 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Setor de Fadiga • Relatório Diário</title>
-<link rel="stylesheet" href="style.css?v=20260918-ciencia2">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=32">
+<link rel="apple-touch-icon" sizes="192x192" href="icon-192.png?v=32">
+<meta name="theme-color" content="#1f3440">
+<link rel="stylesheet" href="style.css?v=20260918-v32">
 </head>
 <body>
 <div id="login" class="login-wrap">
@@ -62,26 +65,26 @@
         <label>Turno<input id="turno" readonly placeholder="Automático"></label>
         <label>Horário<select id="horario"><option>06:00 - 18:00</option><option>18:00 - 06:00</option></select></label>
       </div>
-      <h3>SITUAÇÃO DO TURNO</h3>
+      <h3>SITUAÇÃO DO TURNO</h3><p class="field-help section-help">Classifique o turno considerando os desvios, ocorrências e condições observadas durante todo o período.</p>
       <div class="status">
         <label class="status-card normal"><input type="radio" name="sit" value="NORMAL" checked><span>✓</span><b>NORMAL</b></label>
         <label class="status-card atencao"><input type="radio" name="sit" value="ATENCAO"><span>!</span><b>ATENÇÃO</b></label>
         <label class="status-card ocorrencia"><input type="radio" name="sit" value="OCORRENCIA"><span>!</span><b>OCORRÊNCIA</b></label>
       </div>
       <div class="grid2">
-        <label>Sistema de Fadiga<select id="sistema"><option>NORMAL</option><option>INSTAVEL</option><option>INDISPONIVEL</option></select></label>
-        <label>Condições Operacionais<select id="condicoes"><option>NORMAIS</option><option>ATENCAO</option><option>CRITICAS</option></select></label>
+        <label>Sistema de Fadiga<small class="field-help">Informe a condição do sistema de monitoramento durante o turno.</small><select id="sistema"><option>NORMAL</option><option>INSTAVEL</option><option>INDISPONIVEL</option></select></label>
+        <label>Condições Operacionais<small class="field-help">Avalie as condições gerais da operação que possam impactar o monitoramento.</small><select id="condicoes"><option>NORMAIS</option><option>ATENCAO</option><option>CRITICAS</option></select></label>
       </div>
     </div>
     <div class="panel">
       <h3>DESCRIÇÃO DO TURNO</h3>
       <div class="grid2">
-        <label>Resumo<textarea id="resumo" required></textarea></label>
-        <label>Ocorrências<textarea id="ocorrencias"></textarea></label>
-        <label>Pendências recebidas<textarea id="recebidas"></textarea></label>
-        <label>Pendências geradas<textarea id="geradas"></textarea></label>
-        <label>Ações realizadas<textarea id="acoes"></textarea></label>
-        <label>Passagem de turno / Observações<textarea id="passagem"></textarea></label>
+        <label>Resumo<small class="field-help">Descreva de forma geral como transcorreu o turno e destaque os principais fatos.</small><textarea id="resumo" required placeholder="Ex.: Turno transcorreu normalmente, sistema estável e sem desvios relevantes..."></textarea></label>
+        <label>Ocorrências<small class="field-help">Registre desvios, alertas ou eventos relevantes. Se não houver, informe “Sem ocorrências”.</small><textarea id="ocorrencias" placeholder="Ex.: Alerta de fadiga no CB-10, contato realizado com a supervisão..."></textarea></label>
+        <label>Pendências recebidas<small class="field-help">Informe o que foi recebido do turno anterior e ainda necessita de acompanhamento.</small><textarea id="recebidas" placeholder="Ex.: Acompanhar retorno do suporte sobre falha RPC..."></textarea></label>
+        <label>Pendências geradas<small class="field-help">Registre situações deste turno que deverão ser tratadas ou acompanhadas posteriormente.</small><textarea id="geradas" placeholder="Ex.: Validar câmera do equipamento CB-22 no próximo turno..."></textarea></label>
+        <label>Ações realizadas<small class="field-help">Descreva as tratativas, contatos, comunicações e demais ações executadas.</small><textarea id="acoes" placeholder="Ex.: Supervisor comunicado e vídeo encaminhado para análise..."></textarea></label>
+        <label>Passagem de turno / Observações<small class="field-help">Registre informações essenciais para a continuidade e conhecimento do próximo turno.</small><textarea id="passagem" placeholder="Ex.: Manter acompanhamento da pendência e informar a Gestão em caso de alteração..."></textarea></label>
       </div>
       <div class="acoes"><button type="button" id="limpar" class="cinza">Limpar</button><button id="btnSalvar" type="submit">▣ Salvar Relatório</button></div>
       <p id="save" class="feedback"></p>
@@ -90,7 +93,7 @@
 </section>
 
 <section id="page-historico" class="page">
-  <div class="page-head"><div><small>CONSULTA</small><h1>Meus Relatórios</h1></div><span id="totalRelatorios" class="counter">0 registros</span></div>
+  <div class="page-head"><div><small>CONSULTA</small><h1>Meus Relatórios</h1></div><div class="head-actions"><button type="button" id="exportExcel" class="export-btn">▦ Exportar Excel</button><button type="button" id="exportPdf" class="export-btn pdf">▤ PDF / Imprimir</button><span id="totalRelatorios" class="counter">0 registros</span></div></div>
   <div class="panel">
     <div class="filters">
       <label>Data<input id="fData" type="date"></label>
@@ -142,5 +145,6 @@
 
 
 <div id="modal" class="modal hide"><div class="modal-box"><button id="modalClose" class="x">×</button><div id="modalBody"></div></div></div>
-<script type="module" src="app.js?v=20260918-ciencia2"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script type="module" src="app.js?v=20260918-v32"></script>
 </body></html>

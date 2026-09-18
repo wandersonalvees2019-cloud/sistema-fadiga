@@ -1,7 +1,28 @@
-APP OPERADORES — SETOR DE FADIGA — V1
-Projeto Firebase: setor-de-fadiga
-Arquivos: index.html, style.css, app.js
-Já conectado ao Firebase Authentication e Cloud Firestore.
-Perfil inicial esperado: Wanderson / administrador / turno D.
-Próxima etapa: hospedar via navegador/serviço web sem instalar Node ou NPM no computador protegido.
-Nunca compartilhe sua senha de login, Service Account ou chave privada.
+SISTEMA DE FADIGA — VERSÃO FINAL OPERADORES
+
+Arquivos para substituir no GitHub:
+- index.html
+- style.css
+- app.js
+
+LOGIN ÚNICO:
+Use o mesmo usuário/senha já criado no Firebase Authentication.
+Após entrar, o colaborador é selecionado no formulário:
+Daniele = A
+Carina = B
+Natiély = C
+Wanderson = D
+
+O sistema grava todos os relatórios usando o UID do login único, mas registra
+responsavelNome e turno conforme o colaborador selecionado.
+
+Funções desta versão:
+- Novo Relatório
+- Botões Normal / Atenção / Ocorrência com seleção visual real
+- Meus Relatórios em tempo real
+- Filtros por data, turno, colaborador, situação e pesquisa textual
+- Visualização completa do relatório
+- Pendências em tempo real
+- Marcar pendência como tratada e reabrir
+- Passagem de Turno com relatórios recentes + pendências abertas
+- Layout responsivo

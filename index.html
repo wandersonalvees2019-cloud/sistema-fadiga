@@ -1,1 +1,131 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Setor de Fadiga</title><link rel="stylesheet" href="style.css"></head><body><div id="login"><div class="card"><h1>⛑ SETOR DE FADIGA</h1><p>APP OPERADORES • SEGURANÇA EM MOVIMENTO</p><form id="loginForm"><input id="email" type="email" placeholder="E-mail" required><input id="senha" type="password" placeholder="Senha" required><button>Entrar</button><small id="msg"></small></form></div></div><div id="app" class="hide"><aside><h2>⛑ FADIGA</h2><button class="on">▣ Novo Relatório</button><button>▤ Meus Relatórios</button><button>◷ Pendências</button><button>⇄ Passagem de Turno</button><div class="frase">SEGURANÇA É UMA ESCOLHA DIÁRIA.</div><button id="sair">↪ Sair</button></aside><main><header><b>SETOR DE FADIGA</b><span id="usuario"></span></header><section><div class="head"><div><small>OPERAÇÃO</small><h1>Novo Relatório de Turno</h1></div><em>● Firebase conectado</em></div><form id="relatorio"><div class="panel"><div class="grid4"><label>Data<input id="data" type="date" required></label><label>Turno<input id="turno" readonly></label><label>Horário<select id="horario"><option>06:00 - 18:00</option><option>18:00 - 06:00</option></select></label><label>Responsável<input id="responsavel" readonly></label></div><h3>SITUAÇÃO DO TURNO</h3><div class="status"><label class="normal"><input type="radio" name="sit" value="NORMAL" checked>✓<b>NORMAL</b></label><label class="atencao"><input type="radio" name="sit" value="ATENCAO">!<b>ATENÇÃO</b></label><label class="ocorrencia"><input type="radio" name="sit" value="OCORRENCIA">!<b>OCORRÊNCIA</b></label></div><div class="grid2"><label>Sistema de Fadiga<select id="sistema"><option>NORMAL</option><option>INSTAVEL</option><option>INDISPONIVEL</option></select></label><label>Condições Operacionais<select id="condicoes"><option>NORMAIS</option><option>ATENCAO</option><option>CRITICAS</option></select></label></div></div><div class="panel"><h3>DESCRIÇÃO DO TURNO</h3><div class="grid2"><label>Resumo<textarea id="resumo" required></textarea></label><label>Ocorrências<textarea id="ocorrencias"></textarea></label><label>Pendências recebidas<textarea id="recebidas"></textarea></label><label>Pendências geradas<textarea id="geradas"></textarea></label><label>Ações realizadas<textarea id="acoes"></textarea></label><label>Passagem de turno / Observações<textarea id="passagem"></textarea></label></div><div class="acoes"><button type="reset" class="cinza">Limpar</button><button type="submit">▣ Salvar Relatório</button></div><p id="save"></p></div></form></section></main></div><script type="module" src="app.js"></script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Setor de Fadiga • Relatório Diário</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="login" class="login-wrap">
+  <div class="login-card">
+    <div class="brand-mark">⛑</div>
+    <h1>SETOR DE FADIGA</h1>
+    <p>RELATÓRIO DIÁRIO DE TURNO</p>
+    <form id="loginForm">
+      <label>Login único do setor<input id="email" type="email" placeholder="E-mail do acesso único" required></label>
+      <label>Senha<input id="senha" type="password" placeholder="Senha" required></label>
+      <button type="submit">Entrar no sistema</button>
+      <small id="msg"></small>
+    </form>
+  </div>
+</div>
+
+<div id="app" class="hide app-shell">
+<aside>
+  <div>
+    <h2>⛑ FADIGA</h2>
+    <div class="line"></div>
+    <button class="nav on" data-page="novo">▣ Novo Relatório</button>
+    <button class="nav" data-page="historico">▤ Meus Relatórios</button>
+    <button class="nav" data-page="pendencias">◷ Pendências</button>
+    <button class="nav" data-page="passagem">⇄ Passagem de Turno</button>
+  </div>
+  <div>
+    <div class="frase">MAIS QUE MONITORAR,<br>É PROTEGER VIDAS.</div>
+    <button id="sair" class="logout">↪ Sair</button>
+  </div>
+</aside>
+
+<main>
+<header>
+  <div><b>SEGURANÇA DO TRABALHO</b><small>SETOR DE FADIGA</small></div>
+  <div id="usuario" class="user-pill"></div>
+</header>
+
+<section id="page-novo" class="page active">
+  <div class="page-head"><div><small>OPERAÇÃO</small><h1>Novo Relatório de Turno</h1></div><em>● Sistema conectado</em></div>
+  <form id="relatorio">
+    <div class="panel">
+      <div class="grid4">
+        <label>Data<input id="data" type="date" required></label>
+        <label>Colaborador
+          <select id="responsavel" required>
+            <option value="">Selecione...</option>
+            <option value="Daniele" data-turno="A">Daniele — Turno A</option>
+            <option value="Carina" data-turno="B">Carina — Turno B</option>
+            <option value="Natiély" data-turno="C">Natiély — Turno C</option>
+            <option value="Wanderson" data-turno="D">Wanderson — Turno D</option>
+          </select>
+        </label>
+        <label>Turno<input id="turno" readonly placeholder="Automático"></label>
+        <label>Horário<select id="horario"><option>06:00 - 18:00</option><option>18:00 - 06:00</option></select></label>
+      </div>
+      <h3>SITUAÇÃO DO TURNO</h3>
+      <div class="status">
+        <label class="status-card normal"><input type="radio" name="sit" value="NORMAL" checked><span>✓</span><b>NORMAL</b></label>
+        <label class="status-card atencao"><input type="radio" name="sit" value="ATENCAO"><span>!</span><b>ATENÇÃO</b></label>
+        <label class="status-card ocorrencia"><input type="radio" name="sit" value="OCORRENCIA"><span>!</span><b>OCORRÊNCIA</b></label>
+      </div>
+      <div class="grid2">
+        <label>Sistema de Fadiga<select id="sistema"><option>NORMAL</option><option>INSTAVEL</option><option>INDISPONIVEL</option></select></label>
+        <label>Condições Operacionais<select id="condicoes"><option>NORMAIS</option><option>ATENCAO</option><option>CRITICAS</option></select></label>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>DESCRIÇÃO DO TURNO</h3>
+      <div class="grid2">
+        <label>Resumo<textarea id="resumo" required></textarea></label>
+        <label>Ocorrências<textarea id="ocorrencias"></textarea></label>
+        <label>Pendências recebidas<textarea id="recebidas"></textarea></label>
+        <label>Pendências geradas<textarea id="geradas"></textarea></label>
+        <label>Ações realizadas<textarea id="acoes"></textarea></label>
+        <label>Passagem de turno / Observações<textarea id="passagem"></textarea></label>
+      </div>
+      <div class="acoes"><button type="button" id="limpar" class="cinza">Limpar</button><button id="btnSalvar" type="submit">▣ Salvar Relatório</button></div>
+      <p id="save" class="feedback"></p>
+    </div>
+  </form>
+</section>
+
+<section id="page-historico" class="page">
+  <div class="page-head"><div><small>CONSULTA</small><h1>Meus Relatórios</h1></div><span id="totalRelatorios" class="counter">0 registros</span></div>
+  <div class="panel">
+    <div class="filters">
+      <label>Data<input id="fData" type="date"></label>
+      <label>Turno<select id="fTurno"><option value="">Todos</option><option>A</option><option>B</option><option>C</option><option>D</option></select></label>
+      <label>Colaborador<select id="fResp"><option value="">Todos</option><option>Daniele</option><option>Carina</option><option>Natiély</option><option>Wanderson</option></select></label>
+      <label>Situação<select id="fSit"><option value="">Todas</option><option>NORMAL</option><option>ATENCAO</option><option>OCORRENCIA</option></select></label>
+      <label class="grow">Pesquisar<input id="fBusca" placeholder="Ex.: CB-10, RPC, cinto..."></label>
+      <button type="button" id="limparFiltros" class="cinza filter-btn">Limpar filtros</button>
+    </div>
+  </div>
+  <div id="listaRelatorios" class="cards"></div>
+</section>
+
+<section id="page-pendencias" class="page">
+  <div class="page-head"><div><small>ACOMPANHAMENTO</small><h1>Pendências</h1></div><span id="totalPendencias" class="counter">0 abertas</span></div>
+  <div class="panel">
+    <div class="filters">
+      <label>Status<select id="pStatus"><option value="">Todas</option><option value="ABERTA">Abertas</option><option value="TRATADA">Tratadas</option></select></label>
+      <label>Turno<select id="pTurno"><option value="">Todos</option><option>A</option><option>B</option><option>C</option><option>D</option></select></label>
+      <label class="grow">Pesquisar<input id="pBusca" placeholder="Pesquisar pendência..."></label>
+    </div>
+  </div>
+  <div id="listaPendencias" class="cards"></div>
+</section>
+
+<section id="page-passagem" class="page">
+  <div class="page-head"><div><small>CONTINUIDADE OPERACIONAL</small><h1>Passagem de Turno</h1></div><span class="counter">Últimos registros</span></div>
+  <div class="panel notice">Esta visão reúne os relatórios mais recentes e as pendências ainda abertas para apoiar a continuidade entre os turnos.</div>
+  <div class="two-cols">
+    <div><h2>Relatórios recentes</h2><div id="passRelatorios" class="cards compact"></div></div>
+    <div><h2>Pendências abertas</h2><div id="passPendencias" class="cards compact"></div></div>
+  </div>
+</section>
+</main>
+</div>
+
+<div id="modal" class="modal hide"><div class="modal-box"><button id="modalClose" class="x">×</button><div id="modalBody"></div></div></div>
+<script type="module" src="app.js"></script>
+</body></html>

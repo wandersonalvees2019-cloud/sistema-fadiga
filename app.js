@@ -1,5 +1,132 @@
-import{initializeApp}from'https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js';import{getAuth,signInWithEmailAndPassword,onAuthStateChanged,signOut}from'https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js';import{getFirestore,doc,getDoc,collection,addDoc,serverTimestamp}from'https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js';
-const cfg={apiKey:'AIzaSyAufmht7zvxG_8fwUeb59NBENppnt-MlhY',authDomain:'setor-de-fadiga.firebaseapp.com',projectId:'setor-de-fadiga',storageBucket:'setor-de-fadiga.firebasestorage.app',messagingSenderId:'843558361497',appId:'1:843558361497:web:54db0e57a70bcb0eb9db08'};const fb=initializeApp(cfg),auth=getAuth(fb),db=getFirestore(fb),$=x=>document.getElementById(x);let perfil=null,user=null;$('data').value=new Date().toISOString().slice(0,10);
-$('loginForm').onsubmit=async e=>{e.preventDefault();$('msg').textContent='Entrando...';try{await signInWithEmailAndPassword(auth,$('email').value.trim(),$('senha').value)}catch(x){$('msg').textContent='Confira e-mail e senha.'}};$('sair').onclick=()=>signOut(auth);
-onAuthStateChanged(auth,async u=>{if(!u){$('login').classList.remove('hide');$('app').classList.add('hide');return}try{const s=await getDoc(doc(db,'usuarios',u.uid));if(!s.exists())throw Error('Perfil não cadastrado.');perfil=s.data();if(perfil.ativo!==true)throw Error('Usuário inativo.');user=u;$('responsavel').value=perfil.nome;$('turno').value=perfil.turno;$('usuario').textContent=perfil.nome+' • Turno '+perfil.turno;$('login').classList.add('hide');$('app').classList.remove('hide')}catch(x){$('msg').textContent=x.message;await signOut(auth)}});
-$('relatorio').onsubmit=async e=>{e.preventDefault();$('save').textContent='Salvando...';try{const situacao=document.querySelector('input[name=sit]:checked').value;const ref=await addDoc(collection(db,'relatorios'),{dataTurno:$('data').value,turno:perfil.turno,horario:$('horario').value,responsavelUid:user.uid,responsavelNome:perfil.nome,situacao,sistemaFadiga:$('sistema').value,condicoesOperacionais:$('condicoes').value,resumo:$('resumo').value.trim(),ocorrencias:$('ocorrencias').value.trim(),pendenciasRecebidas:$('recebidas').value.trim(),pendenciasGeradas:$('geradas').value.trim(),acoes:$('acoes').value.trim(),passagemTurno:$('passagem').value.trim(),status:'FINALIZADO',createdAt:serverTimestamp(),updatedAt:serverTimestamp()});if($('geradas').value.trim())await addDoc(collection(db,'pendencias'),{descricao:$('geradas').value.trim(),reportOriginId:ref.id,status:'ABERTA',turnoOrigem:perfil.turno,openedByUid:user.uid,openedByNome:perfil.nome,openedAt:serverTimestamp()});$('save').textContent='Relatório salvo com sucesso.'}catch(x){console.error(x);$('save').textContent='Erro ao salvar: '+x.message}};
+import {initializeApp} from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js';
+import {getAuth,signInWithEmailAndPassword,onAuthStateChanged,signOut} from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js';
+import {getFirestore,doc,getDoc,collection,addDoc,serverTimestamp,onSnapshot,query,orderBy,updateDoc} from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js';
+
+const cfg={apiKey:'AIzaSyAufmht7zvxG_8fwUeb59NBENppnt-MlhY',authDomain:'setor-de-fadiga.firebaseapp.com',projectId:'setor-de-fadiga',storageBucket:'setor-de-fadiga.firebasestorage.app',messagingSenderId:'843558361497',appId:'1:843558361497:web:54db0e57a70bcb0eb9db08'};
+const fb=initializeApp(cfg),auth=getAuth(fb),db=getFirestore(fb);
+const $=id=>document.getElementById(id);
+let user=null,perfil=null,relatorios=[],pendencias=[];
+
+const hoje=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
+$('data').value=hoje();
+
+function esc(v=''){return String(v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+function dataBR(v){if(!v)return '-';const [a,m,d]=v.split('-');return `${d}/${m}/${a}`}
+function selectedStatus(){
+  document.querySelectorAll('.status-card').forEach(x=>x.classList.toggle('selected',x.querySelector('input').checked));
+}
+document.querySelectorAll('input[name=sit]').forEach(x=>x.addEventListener('change',selectedStatus)); selectedStatus();
+
+$('responsavel').addEventListener('change',()=>{
+  const o=$('responsavel').selectedOptions[0];
+  $('turno').value=o?.dataset?.turno||'';
+});
+
+document.querySelectorAll('.nav').forEach(btn=>btn.addEventListener('click',()=>{
+  document.querySelectorAll('.nav').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  $('page-'+btn.dataset.page).classList.add('active');
+  if(btn.dataset.page==='historico')renderRelatorios();
+  if(btn.dataset.page==='pendencias')renderPendencias();
+  if(btn.dataset.page==='passagem')renderPassagem();
+}));
+
+$('loginForm').onsubmit=async e=>{
+ e.preventDefault();$('msg').textContent='Entrando...';
+ try{await signInWithEmailAndPassword(auth,$('email').value.trim(),$('senha').value)}
+ catch(err){console.error(err);$('msg').textContent='Não foi possível entrar. Confira o login único e a senha.'}
+};
+$('sair').onclick=()=>signOut(auth);
+
+onAuthStateChanged(auth,async u=>{
+ if(!u){user=null;perfil=null;$('login').classList.remove('hide');$('app').classList.add('hide');return}
+ try{
+  const s=await getDoc(doc(db,'usuarios',u.uid));
+  if(!s.exists())throw Error('Acesso não cadastrado em usuarios.');
+  perfil=s.data(); if(perfil.ativo!==true)throw Error('Acesso inativo.');
+  user=u;$('usuario').textContent='Acesso do Setor • '+(perfil.perfil||'operador');
+  $('login').classList.add('hide');$('app').classList.remove('hide');
+  iniciarTempoReal();
+ }catch(err){$('msg').textContent=err.message;await signOut(auth)}
+});
+
+function iniciarTempoReal(){
+ onSnapshot(query(collection(db,'relatorios'),orderBy('createdAt','desc')),snap=>{
+   relatorios=snap.docs.map(d=>({id:d.id,...d.data()}));renderRelatorios();renderPassagem();
+ },err=>{console.error('relatorios',err);$('listaRelatorios').innerHTML='<div class="empty">Erro ao carregar relatórios: '+esc(err.message)+'</div>'});
+ onSnapshot(query(collection(db,'pendencias'),orderBy('openedAt','desc')),snap=>{
+   pendencias=snap.docs.map(d=>({id:d.id,...d.data()}));renderPendencias();renderPassagem();
+ },err=>{console.error('pendencias',err);$('listaPendencias').innerHTML='<div class="empty">Erro ao carregar pendências: '+esc(err.message)+'</div>'});
+}
+
+$('limpar').onclick=()=>{ $('relatorio').reset();$('data').value=hoje();$('turno').value='';$('save').textContent='';selectedStatus() };
+
+$('relatorio').onsubmit=async e=>{
+ e.preventDefault();
+ const nome=$('responsavel').value,turno=$('turno').value;
+ if(!nome||!turno){$('save').textContent='Selecione o colaborador antes de salvar.';return}
+ const btn=$('btnSalvar');btn.disabled=true;btn.textContent='Salvando...';$('save').textContent='';
+ try{
+  const situacao=document.querySelector('input[name=sit]:checked').value;
+  const dados={dataTurno:$('data').value,turno,horario:$('horario').value,responsavelUid:user.uid,responsavelNome:nome,situacao,
+   sistemaFadiga:$('sistema').value,condicoesOperacionais:$('condicoes').value,resumo:$('resumo').value.trim(),
+   ocorrencias:$('ocorrencias').value.trim(),pendenciasRecebidas:$('recebidas').value.trim(),pendenciasGeradas:$('geradas').value.trim(),
+   acoes:$('acoes').value.trim(),passagemTurno:$('passagem').value.trim(),status:'FINALIZADO',createdAt:serverTimestamp(),updatedAt:serverTimestamp()};
+  const ref=await addDoc(collection(db,'relatorios'),dados);
+  if(dados.pendenciasGeradas)await addDoc(collection(db,'pendencias'),{descricao:dados.pendenciasGeradas,reportOriginId:ref.id,status:'ABERTA',turnoOrigem:turno,openedByUid:user.uid,openedByNome:nome,openedAt:serverTimestamp(),updatedAt:serverTimestamp()});
+  $('save').textContent='Relatório salvo com sucesso. Ele já está disponível em Meus Relatórios.';
+  $('resumo').value='';$('ocorrencias').value='';$('recebidas').value='';$('geradas').value='';$('acoes').value='';$('passagem').value='';
+ }catch(err){console.error(err);$('save').textContent='Erro ao salvar: '+err.message}
+ finally{btn.disabled=false;btn.textContent='▣ Salvar Relatório'}
+};
+
+['fData','fTurno','fResp','fSit','fBusca'].forEach(id=>$(id).addEventListener(id==='fBusca'?'input':'change',renderRelatorios));
+$('limparFiltros').onclick=()=>{['fData','fTurno','fResp','fSit','fBusca'].forEach(id=>$(id).value='');renderRelatorios()};
+['pStatus','pTurno','pBusca'].forEach(id=>$(id).addEventListener(id==='pBusca'?'input':'change',renderPendencias));
+
+function textoRel(r){return [r.resumo,r.ocorrencias,r.pendenciasRecebidas,r.pendenciasGeradas,r.acoes,r.passagemTurno].join(' ').toLowerCase()}
+function renderRelatorios(){
+ if(!$('listaRelatorios'))return;
+ let a=[...relatorios];
+ const d=$('fData').value,t=$('fTurno').value,n=$('fResp').value,s=$('fSit').value,b=$('fBusca').value.trim().toLowerCase();
+ if(d)a=a.filter(r=>r.dataTurno===d);if(t)a=a.filter(r=>r.turno===t);if(n)a=a.filter(r=>r.responsavelNome===n);if(s)a=a.filter(r=>r.situacao===s);
+ if(b)a=a.filter(r=>(r.responsavelNome||'').toLowerCase().includes(b)||textoRel(r).includes(b));
+ $('totalRelatorios').textContent=a.length+' registro'+(a.length===1?'':'s');
+ $('listaRelatorios').innerHTML=a.length?a.map(cardRelatorio).join(''):'<div class="empty">Nenhum relatório encontrado com esses filtros.</div>';
+ document.querySelectorAll('[data-view-rel]').forEach(b=>b.onclick=()=>abrirRelatorio(b.dataset.viewRel));
+}
+function cardRelatorio(r){
+ return `<article class="record ${esc(r.situacao)}"><div class="record-top"><div><h3>${esc(r.responsavelNome)} • Turno ${esc(r.turno)}</h3><div class="meta">${dataBR(r.dataTurno)} • ${esc(r.horario||'')}</div></div><span class="badge ${esc(r.situacao)}">${esc(r.situacao)}</span></div><p>${esc(r.resumo||'Sem resumo')}</p><div class="record-actions"><button class="small-btn orange" data-view-rel="${r.id}">Visualizar completo</button></div></article>`
+}
+function abrirRelatorio(id){
+ const r=relatorios.find(x=>x.id===id);if(!r)return;
+ const campos=[['Resumo',r.resumo],['Ocorrências',r.ocorrencias],['Pendências recebidas',r.pendenciasRecebidas],['Pendências geradas',r.pendenciasGeradas],['Ações realizadas',r.acoes],['Passagem de turno / Observações',r.passagemTurno]];
+ $('modalBody').innerHTML=`<h2>Relatório • ${esc(r.responsavelNome)} • Turno ${esc(r.turno)}</h2><p class="meta">${dataBR(r.dataTurno)} • ${esc(r.horario||'')} • ${esc(r.situacao)}</p><div class="detail-grid"><div class="detail"><b>Sistema de Fadiga</b>${esc(r.sistemaFadiga||'-')}</div><div class="detail"><b>Condições Operacionais</b>${esc(r.condicoesOperacionais||'-')}</div>${campos.map(c=>`<div class="detail"><b>${c[0]}</b>${esc(c[1]||'-')}</div>`).join('')}</div>`;
+ $('modal').classList.remove('hide');
+}
+
+function renderPendencias(){
+ let a=[...pendencias],st=$('pStatus').value,t=$('pTurno').value,b=$('pBusca').value.trim().toLowerCase();
+ if(st)a=a.filter(p=>p.status===st);if(t)a=a.filter(p=>p.turnoOrigem===t);if(b)a=a.filter(p=>(p.descricao||'').toLowerCase().includes(b)||(p.openedByNome||'').toLowerCase().includes(b));
+ $('totalPendencias').textContent=pendencias.filter(p=>p.status==='ABERTA').length+' aberta'+(pendencias.filter(p=>p.status==='ABERTA').length===1?'':'s');
+ $('listaPendencias').innerHTML=a.length?a.map(cardPendencia).join(''):'<div class="empty">Nenhuma pendência encontrada.</div>';
+ document.querySelectorAll('[data-toggle-p]').forEach(b=>b.onclick=()=>togglePendencia(b.dataset.toggleP));
+}
+function cardPendencia(p){
+ const aberta=p.status!=='TRATADA';
+ return `<article class="record ${aberta?'ATENCAO':'NORMAL'}"><div class="record-top"><div><h3>${aberta?'Pendência aberta':'Pendência tratada'}</h3><div class="meta">Origem: ${esc(p.openedByNome||'-')} • Turno ${esc(p.turnoOrigem||'-')}</div></div><span class="badge ${aberta?'ATENCAO':'NORMAL'}">${esc(p.status||'ABERTA')}</span></div><p>${esc(p.descricao||'')}</p><div class="record-actions"><button class="small-btn ${aberta?'green':'orange'}" data-toggle-p="${p.id}">${aberta?'Marcar como tratada':'Reabrir'}</button></div></article>`
+}
+async function togglePendencia(id){
+ const p=pendencias.find(x=>x.id===id);if(!p)return;
+ try{await updateDoc(doc(db,'pendencias',id),{status:p.status==='TRATADA'?'ABERTA':'TRATADA',updatedAt:serverTimestamp(),treatedByUid:user.uid})}
+ catch(err){alert('Não foi possível atualizar: '+err.message)}
+}
+function renderPassagem(){
+ const rs=relatorios.slice(0,5),ps=pendencias.filter(p=>p.status==='ABERTA').slice(0,8);
+ $('passRelatorios').innerHTML=rs.length?rs.map(cardRelatorio).join(''):'<div class="empty">Sem relatórios recentes.</div>';
+ $('passPendencias').innerHTML=ps.length?ps.map(cardPendencia).join(''):'<div class="empty">Nenhuma pendência aberta.</div>';
+ document.querySelectorAll('#page-passagem [data-view-rel]').forEach(b=>b.onclick=()=>abrirRelatorio(b.dataset.viewRel));
+ document.querySelectorAll('#page-passagem [data-toggle-p]').forEach(b=>b.onclick=()=>togglePendencia(b.dataset.toggleP));
+}
+$('modalClose').onclick=()=>$('modal').classList.add('hide');
+$('modal').onclick=e=>{if(e.target===$('modal'))$('modal').classList.add('hide')};
